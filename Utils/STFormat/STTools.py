@@ -1,5 +1,6 @@
 import sys, os, types
 import codecs
+import unicode2ascii.unicode2ascii as U2A
 from RemoveDuplicates import removeDuplicateEvents
 
 class Document:
@@ -190,7 +191,13 @@ class Document:
         self.connectSites()
     
     def loadText(self, filename):
-        f = codecs.open(filename, "rt", "utf-8")
+        #Perform the replacement of Unicode characters
+        argv = [filename]
+        print argv
+
+        U2A.processFile(argv)
+
+        f = codecs.open(os.path.splitext(filename)[0] + "-ascii.txt", "rt", "utf-8")
         self.text = f.read()
         f.close()
 

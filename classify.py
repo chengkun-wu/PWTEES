@@ -13,6 +13,7 @@ import Utils.Download
 from Utils.Connection.Connection import getConnection
 import Utils.Download
 from Detectors.Preprocessor import Preprocessor
+import unicode2ascii.unicode2ascii as U2A
 
 def classify(input, model, output, workDir=None, step=None, omitSteps=None, 
              goldInput=None, detector=None, debug=False, clear=False, 
@@ -155,7 +156,14 @@ def getPubMed(pmid):
     f.write("\n".join(textElements))
     f.close()
     # Return text file name
-    return downloaded + ".txt"
+
+    #Perform the replacement of Unicode characters
+    argv = [downloaded + ".txt"]
+    print argv
+
+    U2A.processFile(argv)
+
+    return downloaded + "-ascii.txt"
 
 if __name__=="__main__":
     # Import Psyco if available

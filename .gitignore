@@ -2,3 +2,8 @@
 /.project
 /.settings/*
 *.pyc
+*.txt
+*.gz
+*.a1
+*.a2
+*.xml
