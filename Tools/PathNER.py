@@ -3,6 +3,7 @@ parse__version__ = "$Revision: 1.3 $"
 import sys,os
 import time, datetime
 import sys
+import re
 try:
     import xml.etree.cElementTree as ET
 except ImportError:
@@ -25,7 +26,7 @@ def test(progDir):
 def makeEntityElements(beginOffset, endOffset, text, splitNewlines=False, elementName="entity"):
     # NOTE! Entity ids are not set by this function
     # beginOffset and endOffset in interaction XML format
-    bannerOffset = str(beginOffset) + "-" + str(endOffset)
+    pathnerOffset = str(beginOffset) + "-" + str(endOffset)
     currentEndOffset = beginOffset
     elements = []
     if splitNewlines:
@@ -48,8 +49,8 @@ def makeEntityElements(beginOffset, endOffset, text, splitNewlines=False, elemen
                 entityBeginOffset += len(entityString) - len(entityString.lstrip())
             # Make the element
             ent.set("charOffset", str(entityBeginOffset) + "-" + str(entityEndOffset))
-            if ent.get("charOffset") != bannerOffset:
-                ent.set("origPathNEROffset", bannerOffset)
+            if ent.get("charOffset") != pathnerOffset:
+                ent.set("origPathNEROffset", pathnerOffset)
             ent.set("type", "Protein")
             ent.set("given", "True")
             ent.set("source", "PathNER")
@@ -71,9 +72,9 @@ def run(input, output=None, elementName="entity", processElement="document", spl
     if debug:
         print >> sys.stderr, "PathNER work directory at", workdir
     
-    infilePath = os.path.join(workdir, os.path.splitext(input)[0] + "-input.txt")
+    infilePath = os.path.join(workdir, "pathner-in.txt")
     infile = codecs.open(infilePath, "wt", "utf-8")
-    outfilePath = os.path.splitext(infilePath)[0] + "-out.txt"
+    outfilePath = os.path.join(workdir, "pathner-out.txt")
     idCount = 0
 
     # Put sentences in dictionary
@@ -121,6 +122,8 @@ def run(input, output=None, elementName="entity", processElement="document", spl
     totalEntities = 0
     nonSplitCount = 0
     splitEventCount = 0
+    pathnerEntityCount = 0
+    removedEntityCount = 0
     
     #Will use a simple method here: read the PathNER results and then do the matching in the sentences
     
@@ -130,44 +133,99 @@ def run(input, output=None, elementName="entity", processElement="document", spl
     sentenceEntityCount = {}
     #mentionfile = codecs.open(os.path.join(workdir, "file_test_result.txt"), "rt", "utf-8")
     #outfilePath = pathnerPath + "/" + outfilePath
-    print outfilePath
-    mentionfile = codecs.open(outfilePath, "rt", "utf-8")
-    menDict = {}
-    for line in mentionfile:
-        #bannerId, offsets, word = line.strip().split("|", 2)
-        pathNerTag, mention, pathNerId, confidence = line.strip().split("\t")
-        menDict[pathNerId] = mention
-    mentionfile.close()
+    print >>sys.stderr, 'Getting PathNER results from', outfilePath
 
-    #count for pathway entities
-    epCount = 0 
-    for sentence in corpusRoot.getiterator(processElement):
-        #infile.write("U" + str(idCount) + " " + sentence.get("text").replace("\n", " ").replace("\n", " ") + "\n")
-        sentText = sentence.get("text").replace("\n", " ").replace("\n", " ") + "\n"
-        startOffsets = []
-        endOffsets = []
+    if os.path.isfile(outfilePath): #pathway mentions detected
 
-        startOffset = 0
-        endOffset = 0
+        mentionfile = codecs.open(outfilePath, "rt", "utf-8")
+        menDict = {}
+        menSet = set()
+        for line in mentionfile:
+            #bannerId, offsets, word = line.strip().split("|", 2)
+            pathNerTag, mention, pathNerId, confidence = line.strip().split("\t")
+            menDict[mention] = pathNerId
+            menSet.add(mention)
+        mentionfile.close()
 
-        for mention in menDict.values():
-            startOffset = sentText.find(mention, endOffset)
-            endOffset = startOffset + len(mention)
+        print menSet
+        #count for pathway entities
+        epCount = 0 
+        for sentence in corpusRoot.getiterator(processElement):
+            #infile.write("U" + str(idCount) + " " + sentence.get("text").replace("\n", " ").replace("\n", " ") + "\n")
+            sentText = sentence.get("text").replace("\n", " ").replace("\n", " ") + "\n"
+            startOffsets = []
+            endOffsets = []
 
-            if  startOffset < 0:
-                continue
+            bannerEntities = sentence.findall("entity")
+            bannerEntityCount = 0
 
-            entities = makeEntityElements(int(startOffset), int(endOffset), sentence.get("text"), splitNewlines, elementName)
+            for bannerEntity in bannerEntities:
+                source = bannerEntity.get('source')
+                text = bannerEntity.get('text')
 
-            for ent in entities:
-                ent.set("id", sentence.get("id") + ".ep" + str(epCount))
-                epCount += 1
+                if not source == 'BANNER':
+                    print source, text
 
-                sentence.append(ent)
-    
-    print >> sys.stderr, "PathNER found", nonSplitCount, "entities in", sentencesWithEntities, processElement + "-elements",
-    print >> sys.stderr, "(" + str(sCount) + " sentences processed)"
-    print >> sys.stderr, "New", elementName + "-elements:", totalEntities, "(Split", splitEventCount, "PathNER entities with newlines)"
+                bannerEntityCount += 1
+
+            startOffset = 0
+            endOffset = 0
+
+            for mention in menSet:
+                starts = [match.start() for match in re.finditer(re.escape(mention), sentText)]
+
+                #print 'Finding PathNER mention:', mention, starts
+
+                for startOffset in starts:
+                    endOffset = startOffset + len(mention)
+
+                    if  startOffset < 0:
+                        continue
+
+                    entities = makeEntityElements(int(startOffset), int(endOffset), sentence.get("text"), splitNewlines, elementName)
+
+                    for ent in entities:
+                        #Add processing for entities that are overlapped with the PathNER result
+                        
+                        entOffsets = ent.get("charOffset").split('-')
+                        entStart = int(entOffsets[0])
+                        entEnd = int(entOffsets[1])
+
+                        for bannerEntity in bannerEntities:
+                
+                            bannerOffsets = bannerEntity.get('charOffset').split('-')
+                            bannerStart = int(bannerOffsets[0])
+                            bannerEnd = int(bannerOffsets[1])
+
+                            if debug:
+                                print 'PathNER entity:', entStart, entEnd, 'Banner entity:', bannerStart, bannerEnd
+
+                            #Are offsets overlapped or not?
+                            if entEnd <= bannerStart or bannerEnd <= entStart: #not overlapped
+                                continue
+                            else:#overlapped, show remove the banner entity
+                                sentence.remove(bannerEntity)
+                                removedEntityCount += 1
+
+                                if debug:
+                                    print 'Removing entity ', bannerEntity.get('text'), bannerEntity.get('id')
+                                    print ETUtils.toStr(sentence)
+
+
+                        ent.set("id", sentence.get("id") + ".e" + str(bannerEntityCount+1))
+                        epCount += 1
+
+                        sentence.append(ent)
+                        pathnerEntityCount += 1
+                        
+                        if debug:
+                            print 'Adding PathNER resutl:', mention
+                            print ETUtils.toStr(sentence)
+                        
+            
+        print >> sys.stderr, "PathNER found", pathnerEntityCount, "entities and remove ", removedEntityCount, " overlapping BANNER entities. "
+        print >> sys.stderr, "(" + str(sCount) + " sentences processed)"
+        print >> sys.stderr, "New", elementName + "-elements:", totalEntities, "(Split", splitEventCount, "PathNER entities with newlines)"
     
     # Remove work directory
     if not debug:
