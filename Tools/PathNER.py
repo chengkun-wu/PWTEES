@@ -211,8 +211,8 @@ def run(input, output=None, elementName="entity", processElement="document", spl
                                     print 'Removing entity ', bannerEntity.get('text'), bannerEntity.get('id')
                                     print ETUtils.toStr(sentence)
 
-
-                        ent.set("id", sentence.get("id") + ".e" + str(bannerEntityCount+1))
+                        bannerEntityCount += 1
+                        ent.set("id", sentence.get("id") + ".e" + str(bannerEntityCount))
                         epCount += 1
 
                         sentence.append(ent)
