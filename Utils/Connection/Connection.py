@@ -6,6 +6,7 @@ import types
 from UnixConnection import UnixConnection
 from LSFConnection import LSFConnection
 from SLURMConnection import SLURMConnection
+from SGEConnection import SGEConnection
 #import LSF.LSFConnection
 
 def getConnection(connection): #, account=None, workDirBase=None, remoteSettingsPath=None):
