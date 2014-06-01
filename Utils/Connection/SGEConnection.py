@@ -16,7 +16,7 @@ SGEJobTemplate = """#!/bin/bash
 #output dirs
 #$ -o log/
 #$ -e err/
-#$ -l twoday
+##$ -l twoday
 ##$ -t 1-20
 
 %commands
