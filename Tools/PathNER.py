@@ -170,6 +170,7 @@ def run(input, output=None, elementName="entity", processElement="document", spl
 
             startOffset = 0
             endOffset = 0
+            bannerEntity2removed = set()
 
             for mention in menSet:
                 starts = [match.start() for match in re.finditer(re.escape(mention), sentText)]
@@ -204,12 +205,7 @@ def run(input, output=None, elementName="entity", processElement="document", spl
                             if entEnd <= bannerStart or bannerEnd <= entStart: #not overlapped
                                 continue
                             else:#overlapped, show remove the banner entity
-                                sentence.remove(bannerEntity)
-                                removedEntityCount += 1
-
-                                if debug:
-                                    print 'Removing entity ', bannerEntity.get('text'), bannerEntity.get('id')
-                                    print ETUtils.toStr(sentence)
+                                bannerEntity2removed.add(bannerEntity)
 
                         bannerEntityCount += 1
                         ent.set("id", sentence.get("id") + ".e" + str(bannerEntityCount))
@@ -222,7 +218,15 @@ def run(input, output=None, elementName="entity", processElement="document", spl
                             print 'Adding PathNER resutl:', mention
                             print ETUtils.toStr(sentence)
                         
-            
+            #Now really to delete the overlapped BANNER entities
+            for bEntity in bannerEntity2removed:
+                removedEntityCount += 1
+                sentence.remove(bEntity)
+                
+                if debug:
+                    print 'Removing entity ', bannerEntity.get('text'), bannerEntity.get('id')
+                    print ETUtils.toStr(sentence)
+
         print >> sys.stderr, "PathNER found", pathnerEntityCount, "entities and remove ", removedEntityCount, " overlapping BANNER entities. "
         print >> sys.stderr, "(" + str(sCount) + " sentences processed)"
         print >> sys.stderr, "New", elementName + "-elements:", totalEntities, "(Split", splitEventCount, "PathNER entities with newlines)"
