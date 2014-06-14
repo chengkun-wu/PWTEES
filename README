@@ -1,3 +1,17 @@
+PWTEES 
+=================================
+PWTEES expands TEES by adding support for events between proteins and pathways. For instance, "Downregulation of uPAR inhibits FAK/PI3K/Akt signaling ". 
+
+To do this, you will need to have PathNER (https://github.com/chengkun-wu/PathNER) installed in your TEES working folder. 
+
+The usage is through the interface of the original TEES system. 
+
+Support for batch processing on SGE cluster is also added. 
+
+Inquiries and questions, please contact me (chengkun.wu@manchester.ac.uk). 
+
+
+=================================
 Turku Event Extraction System 2.2
 =================================
 
